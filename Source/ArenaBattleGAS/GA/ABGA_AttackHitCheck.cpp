@@ -8,6 +8,7 @@
 #include "AttributeSet.h"
 #include "ArenaBattleGAS.h"
 #include "Attribute/ABCharacterAttributeSet.h"
+#include "Tag/ABGameplayTag.h"
 
 UABGA_AttackHitCheck::UABGA_AttackHitCheck()
 {
@@ -20,6 +21,8 @@ void UABGA_AttackHitCheck::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
+	CurrentLevel = TriggerEventData->EventMagnitude;
+	
 	UABAT_Trace* AttackTraceTask = UABAT_Trace::CreateTask(this, AABTA_Trace::StaticClass());
 
 	AttackTraceTask->OnComplete.AddDynamic(this, &UABGA_AttackHitCheck::OnTraceResultCallback);
@@ -38,26 +41,35 @@ void UABGA_AttackHitCheck::OnTraceResultCallback(const FGameplayAbilityTargetDat
 		ABGAS_LOG(LogABGAS, Log, TEXT("Target %s Detected"), *(HitResult.GetActor()->GetName()));
 
 		UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo_Checked();
-		UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(HitResult.GetActor());
-
-		if (!SourceASC || !TargetASC)
-		{
-			ABGAS_LOG(LogABGAS, Error, TEXT("ASC Not found!"));
-			return;
-		}
-
-		const UABCharacterAttributeSet* SourceAttributeSet = SourceASC->GetSet<UABCharacterAttributeSet>();
-		UABCharacterAttributeSet* TargetAttributeSet = const_cast<UABCharacterAttributeSet*>(TargetASC->GetSet<UABCharacterAttributeSet>());
-
-		if (!SourceAttributeSet || !TargetAttributeSet)
-		{
-			ABGAS_LOG(LogABGAS, Error, TEXT("AttributeSet Not found!"));
-			return;
-		}
-
-		const float AttackDamage = SourceAttributeSet->GetAttackRate();
-		TargetAttributeSet->SetHealth(TargetAttributeSet->GetHealth() - AttackDamage);
 		
+		// UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(HitResult.GetActor());
+		//
+		// if (!SourceASC || !TargetASC)
+		// {
+		// 	ABGAS_LOG(LogABGAS, Error, TEXT("ASC Not found!"));
+		// 	return;
+		// }
+		//
+		
+		const UABCharacterAttributeSet* SourceAttributeSet = SourceASC->GetSet<UABCharacterAttributeSet>();
+		
+		// UABCharacterAttributeSet* TargetAttributeSet = const_cast<UABCharacterAttributeSet*>(TargetASC->GetSet<UABCharacterAttributeSet>());
+		//
+		// if (!SourceAttributeSet || !TargetAttributeSet)
+		// {
+		// 	ABGAS_LOG(LogABGAS, Error, TEXT("AttributeSet Not found!"));
+		// 	return;
+		// }
+		//
+		// const float AttackDamage = SourceAttributeSet->GetAttackRate();
+		// TargetAttributeSet->SetHealth(TargetAttributeSet->GetHealth() - AttackDamage);
+
+		FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(AttackDamageEffect, CurrentLevel);
+		if (EffectSpecHandle.IsValid())
+		{
+			EffectSpecHandle.Data->SetSetByCallerMagnitude(ABTAG_DATA_DAMAGE, -SourceAttributeSet->GetAttackRate());
+			ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, EffectSpecHandle, TargetDataHandle);
+		}
 	}
 
 	bool bReplicatedEndAbility = true;
