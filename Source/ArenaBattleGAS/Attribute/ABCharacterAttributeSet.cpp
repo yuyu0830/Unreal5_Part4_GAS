@@ -3,6 +3,7 @@
 
 #include "Attribute/ABCharacterAttributeSet.h"
 #include "ArenaBattleGAS.h"
+#include "Tag/ABGameplayTag.h"
 #include "GameplayEffectExtension.h"
 
 UABCharacterAttributeSet::UABCharacterAttributeSet() :
@@ -31,12 +32,27 @@ void UABCharacterAttributeSet::PreAttributeChange(const FGameplayAttribute& Attr
 	}
 }
 
-// bool UABCharacterAttributeSet::PreGameplayEffectExecute(FGameplayEffectModCallbackData& Data)
-// {
-// 	Super::PreGameplayEffectExecute(Data);
-//
-// 	
-// }
+bool UABCharacterAttributeSet::PreGameplayEffectExecute(FGameplayEffectModCallbackData& Data)
+{
+	if(!Super::PreGameplayEffectExecute(Data))
+	{
+		return false;
+	}
+
+	if (Data.EvaluatedData.Attribute == GetDamageAttribute())
+	{
+		if (Data.EvaluatedData.Magnitude > 0.f)
+		{
+			if (Data.Target.HasMatchingGameplayTag(ABTAG_CHARACTER_INVINSIBLE))
+			{
+				Data.EvaluatedData.Magnitude = 0.f;
+				return false;
+			}
+		}
+	}
+
+	return true;
+}
 
 void UABCharacterAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data)
 {
@@ -55,6 +71,14 @@ void UABCharacterAttributeSet::PostGameplayEffectExecute(const FGameplayEffectMo
 		SetHealth(FMath::Clamp(GetHealth() - GetDamage(), MinHealth, GetMaxHealth()));
 		SetDamage(0.f);
 	}
+
+	if (GetHealth() <= 0.f && !bOutOfHealth)
+	{
+		Data.Target.AddLooseGameplayTag(ABTAG_CHARACTER_ISDEAD);
+		OnOutOfHealth.Broadcast();
+	}
+
+	bOutOfHealth = (GetHealth() <= 0.f);
 }
 
 // void UABCharacterAttributeSet::PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue)
