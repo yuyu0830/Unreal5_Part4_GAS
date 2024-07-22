@@ -19,6 +19,12 @@ AABGASCharacterPlayer::AABGASCharacterPlayer()
 	{
 		ComboActionMontage = ComboActionMontageRef.Object;
 	}
+	
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> SkillActionMontageRef(TEXT("/Script/Engine.AnimMontage'/Game/ArenaBattleGAS/Animation/AM_SkillAttack.AM_SkillAttack'"));
+	if (SkillActionMontageRef.Object)
+	{
+		SkillActionMontage = SkillActionMontageRef.Object;
+	}
 
 	HpBar = CreateDefaultSubobject<UABGASWidgetComponent>(TEXT("Widget"));
 	HpBar->SetupAttachment(GetMesh());
@@ -103,6 +109,7 @@ void AABGASCharacterPlayer::SetupGASInputComponent()
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &AABGASCharacterPlayer::GASInputPressed, 0);
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &AABGASCharacterPlayer::GASInputReleased, 0);
 		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &AABGASCharacterPlayer::GASInputPressed, 1);
+		EnhancedInputComponent->BindAction(SkillAction, ETriggerEvent::Triggered, this, &AABGASCharacterPlayer::GASInputPressed, 2);
 	}
 }
 
@@ -147,6 +154,14 @@ void AABGASCharacterPlayer::EquipWeaon(const FGameplayEventData* EventData)
 	{
 		Weapon->SetSkeletalMesh(WeaponMesh);
 
+		FGameplayAbilitySpec NewSkillSpec(SkillAbilityClass);
+		NewSkillSpec.InputID = 2;
+
+		if (!ASC->FindAbilitySpecFromClass(SkillAbilityClass)) 
+		{
+			ASC->GiveAbility(NewSkillSpec);
+		}
+
 		const float CurrentAttackRange = ASC->GetNumericAttributeBase(UABCharacterAttributeSet::GetAttackRangeAttribute());
 		const float CurrentAttackRate = ASC->GetNumericAttributeBase(UABCharacterAttributeSet::GetAttackRateAttribute());
 
@@ -160,6 +175,12 @@ void AABGASCharacterPlayer::UnequipWeaon(const FGameplayEventData* EventData)
 	if (Weapon)
 	{
 		Weapon->SetSkeletalMesh(nullptr);
+
+		FGameplayAbilitySpec* SkillAbilitySpec = ASC->FindAbilitySpecFromClass(SkillAbilityClass);
+		if (SkillAbilitySpec) 
+		{
+			ASC->ClearAbility(SkillAbilitySpec->Handle);
+		}
 
 		const float CurrentAttackRange = ASC->GetNumericAttributeBase(UABCharacterAttributeSet::GetAttackRangeAttribute());
 		const float CurrentAttackRate = ASC->GetNumericAttributeBase(UABCharacterAttributeSet::GetAttackRateAttribute());
